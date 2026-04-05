@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+*.bak
+icons/combo_arrow.svg
+rename_info_configs.py
+.beamng_infogen.json
