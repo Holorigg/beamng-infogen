@@ -25,6 +25,7 @@ jobs:
         run: |
           pyinstaller --noconfirm --onefile --windowed `
             --name "beamng-infogen" `
+            --add-data "icons;icons" `
             main.py
 
       - name: Upload artifact

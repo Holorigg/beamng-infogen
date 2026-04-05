@@ -37,14 +37,14 @@ _ARROW_SVG = (
 )
 
 
-def _app_dir() -> Path:
+def _icons_dir() -> Path:
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).parent
+        return Path(sys._MEIPASS) / "icons"
+    return Path(__file__).parent / "icons"
 
 
 def make_dark_style() -> str:
-    icons_dir = _app_dir() / "icons"
+    icons_dir = _icons_dir()
     icons_dir.mkdir(exist_ok=True)
     arrow_path = icons_dir / "combo_arrow.svg"
     if not arrow_path.exists():
