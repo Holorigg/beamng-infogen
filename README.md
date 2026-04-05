@@ -5,6 +5,14 @@ Designed for use with **RLS Career Overhaul** — cars require a valid info conf
 
 ---
 
+## Screenshots
+
+![Main view](https://github.com/Holorigg/beamng-info-config-generator/releases/download/v1.0.3/1_clean.png)
+
+![Editor with dealer card preview](https://github.com/Holorigg/beamng-info-config-generator/releases/download/v1.0.3/2_clean.png)
+
+---
+
 ## Requirements
 
 - Python 3.10+
@@ -25,7 +33,7 @@ python main.py
 To open directly with a mods folder:
 
 ```
-python main.py --mods-path "C:/Users/you/AppData/Local/BeamNG/BeamNG.drive/mods"
+python main.py --mods-path "C:/Users/you/AppData/Local/BeamNG/BeamNG.drive/current/mods"
 ```
 
 The path is saved automatically after the first scan.
