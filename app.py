@@ -3,6 +3,7 @@ BeamNG Info Config Generator — PySide6 GUI.
 """
 import json
 import random
+import sys
 import threading
 from pathlib import Path
 from typing import Optional
@@ -36,8 +37,14 @@ _ARROW_SVG = (
 )
 
 
+def _app_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path(__file__).parent
+
+
 def make_dark_style() -> str:
-    icons_dir = Path(__file__).parent / "icons"
+    icons_dir = _app_dir() / "icons"
     icons_dir.mkdir(exist_ok=True)
     arrow_path = icons_dir / "combo_arrow.svg"
     if not arrow_path.exists():
