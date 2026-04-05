@@ -117,8 +117,6 @@ info_{config_name}.json
 
 Example: `vehicles/myCar/sport_v8.pc` → `vehicles/myCar/info_sport_v8.json`
 
-The tool always writes files with this naming. Legacy `info_config_*` names are detected and flagged in the Analyze report.
-
 ---
 
 ## ✅ Required fields
