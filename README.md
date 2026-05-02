@@ -3,13 +3,6 @@
 A GUI tool for generating and managing `info_*.json` config files for BeamNG.drive mods.
 Designed for use with **RLS Career Overhaul** — cars require a valid info config to appear in dealer shops.
 
----
-
-## Screenshots
-
-![Main view](https://github.com/Holorigg/beamng-info-config-generator/releases/download/v1.0.3/1_clean.png)
-
-![Editor with dealer card preview](https://github.com/Holorigg/beamng-info-config-generator/releases/download/v1.0.3/2_clean.png)
 
 ---
 
