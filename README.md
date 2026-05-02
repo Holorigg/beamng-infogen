@@ -5,6 +5,14 @@ Designed for use with **RLS Career Overhaul** — cars require a valid info conf
 
 ---
 
+## Screenshots
+
+![Main view](https://github.com/Holorigg/beamng-info-config-generator/releases/download/v1.0.3/1_clean.png)
+
+![Editor with dealer card preview](https://github.com/Holorigg/beamng-info-config-generator/releases/download/v1.0.3/2_clean.png)
+
+---
+
 ## Requirements
 
 - Python 3.10+
@@ -89,6 +97,20 @@ Use **Copy report** to copy the full list to clipboard.
 Click **⊞** in the panel header to switch to a flat sortable table of all configs.
 Click any column header to sort. Click a row to load that config in the editor.
 Click **≡** to switch back to the tree.
+
+---
+
+## ZIP performance notes
+
+ZIP mods are scanned by reading only the archive directory plus the needed `.pc`,
+`info_*.json`, and thumbnail files.
+
+When generating missing configs, new `info_*.json` files are appended directly to
+the archive. When replacing existing configs, the archive is rebuilt through a
+temporary file on disk instead of loading the whole mod into RAM.
+
+Bulk actions group ZIP writes per archive, so one ZIP is updated once per action
+instead of once per config.
 
 ### ⌨️ Keyboard shortcuts
 

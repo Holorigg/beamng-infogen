@@ -23,7 +23,7 @@ from generator import generate, fix, validate
 import json_utils
 from json_view import JsonView
 from scanner import ConfigEntry, scan_mods_folder
-from zip_handler import write_to_zip
+from zip_handler import write_many_to_zip
 
 SETTINGS_FILE = Path.home() / ".beamng_infogen.json"
 
@@ -893,34 +893,69 @@ class App(QMainWindow):
                 pass
         return data
 
-    def _write_entry(self, entry: ConfigEntry, data: dict, refresh: bool = True):
-        json_str = json.dumps(data, indent=2, ensure_ascii=False)
-
+    def _info_filename_for_entry(self, entry: ConfigEntry) -> str:
         if entry.info_path:
-            info_filename = Path(entry.info_path).name
-        else:
-            stem = entry.config_name
-            if stem.lower().startswith("config_"):
-                stem = stem[len("config_"):]
-            info_filename = f"info_{stem}.json"
+            return Path(entry.info_path).name
 
+        stem = entry.config_name
+        if stem.lower().startswith("config_"):
+            stem = stem[len("config_"):]
+        return f"info_{stem}.json"
+
+    def _target_path_for_entry(self, entry: ConfigEntry) -> str:
+        info_filename = self._info_filename_for_entry(entry)
         if entry.source == "zip":
             target = (Path(entry.pc_path).parent / info_filename).as_posix()
             if target.startswith("./"):
                 target = target[2:]
-            write_to_zip(entry.source_path, target, json_str)
-            entry.info_path = target
-        else:
-            info_path = Path(entry.pc_path).parent / info_filename
-            info_path.write_text(json_str, encoding="utf-8")
-            entry.info_path = str(info_path)
+            return target
+        return str(Path(entry.pc_path).parent / info_filename)
 
+    def _mark_entry_written(self, entry: ConfigEntry, data: dict, json_str: str, info_path: str):
+        entry.info_path      = info_path
         entry.info_content   = data
         entry.info_raw       = json_str
         entry.missing_fields = validate(data)
         entry.status         = "ok" if not entry.missing_fields else "bad"
+
+    def _write_entry(self, entry: ConfigEntry, data: dict, refresh: bool = True):
+        self._write_entry_pairs([(entry, data)])
         if refresh:
             self._refresh_entry_item(entry)
+
+    def _write_entry_pairs(self, pairs: list[tuple[ConfigEntry, dict]]):
+        zip_updates: dict[str, dict[str, str]] = {}
+        zip_written: list[tuple[ConfigEntry, dict, str, str]] = []
+
+        for entry, data in pairs:
+            json_str = json.dumps(data, indent=2, ensure_ascii=False)
+            target = self._target_path_for_entry(entry)
+
+            if entry.source == "zip":
+                zip_updates.setdefault(entry.source_path, {})[target] = json_str
+                zip_written.append((entry, data, json_str, target))
+            else:
+                Path(target).write_text(json_str, encoding="utf-8")
+                self._mark_entry_written(entry, data, json_str, target)
+
+        for zip_path, updates in zip_updates.items():
+            write_many_to_zip(zip_path, updates)
+
+        for entry, data, json_str, target in zip_written:
+            self._mark_entry_written(entry, data, json_str, target)
+
+    def _write_groups_for_pairs(self, pairs: list[tuple[ConfigEntry, dict]]) -> list[list[tuple[ConfigEntry, dict]]]:
+        groups: list[list[tuple[ConfigEntry, dict]]] = []
+        zip_groups: dict[str, list[tuple[ConfigEntry, dict]]] = {}
+
+        for entry, data in pairs:
+            if entry.source == "zip":
+                zip_groups.setdefault(entry.source_path, []).append((entry, data))
+            else:
+                groups.append([(entry, data)])
+
+        groups.extend(zip_groups.values())
+        return groups
 
     def _browse(self):
         path = QFileDialog.getExistingDirectory(self, "Select mods folder")
@@ -1038,21 +1073,24 @@ class App(QMainWindow):
 
     def _generate_all_missing(self):
         defaults = self._editor_defaults()
-        items = [e for es in self.mods_data.values()
-                 for e in es if e.status == "missing"]
+        pairs = [
+            (e, generate(e.config_name, e.auto_detected, defaults))
+            for es in self.mods_data.values()
+            for e in es if e.status == "missing"
+        ]
+        groups = self._write_groups_for_pairs(pairs)
+        created = len(pairs)
 
-        def work(entry):
-            self._write_entry(entry,
-                              generate(entry.config_name, entry.auto_detected, defaults),
-                              refresh=False)
+        def work(group):
+            self._write_entry_pairs(group)
 
-        def done(n):
+        def done(_):
             for mod_name in self.mods_data:
                 self._maybe_auto_collapse(mod_name)
             self._rebuild_view()
-            self._update_status(created=n)
+            self._update_status(created=created)
 
-        self._run_batch("Generating...", items, work, done,
+        self._run_batch("Generating...", groups, work, done,
                         subtitle="Generating missing info configs...")
 
     def _generate_selected(self):
@@ -1065,43 +1103,48 @@ class App(QMainWindow):
             "Fuel Type":    self.w_fuel.currentText(),
         }
         all_entries = {id(e): e for es in self.mods_data.values() for e in es}
-        items = [all_entries[eid] for eid in self._selection if eid in all_entries]
+        entries = [all_entries[eid] for eid in self._selection if eid in all_entries]
+        pairs = [
+            (e, generate(e.config_name, auto_override, defaults))
+            for e in entries
+        ]
+        groups = self._write_groups_for_pairs(pairs)
+        created = len(pairs)
 
-        def work(entry):
-            self._write_entry(entry,
-                              generate(entry.config_name, auto_override, defaults),
-                              refresh=False)
+        def work(group):
+            self._write_entry_pairs(group)
 
-        def done(n):
+        def done(_):
             for mod_name in self.mods_data:
                 self._maybe_auto_collapse(mod_name)
             self._rebuild_view()
-            self._update_status(created=n)
+            self._update_status(created=created)
             if self.selected_entry and id(self.selected_entry) in self._selection:
                 self._load_to_editor(self.selected_entry)
 
-        self._run_batch("Generating...", items, work, done,
+        self._run_batch("Generating...", groups, work, done,
                         subtitle="Generating selected configs...")
 
     def _fix_all_bad(self):
         defaults = self._editor_defaults()
-        items = [(mn, e) for mn, es in self.mods_data.items()
-                 for e in es if e.status == "bad"]
+        pairs = [
+            (e, fix(e.info_content or {}, e.config_name, e.auto_detected, defaults))
+            for es in self.mods_data.values()
+            for e in es if e.status == "bad"
+        ]
+        groups = self._write_groups_for_pairs(pairs)
+        updated = len(pairs)
 
-        def work(item):
-            _, entry = item
-            self._write_entry(entry,
-                              fix(entry.info_content or {}, entry.config_name,
-                                  entry.auto_detected, defaults),
-                              refresh=False)
+        def work(group):
+            self._write_entry_pairs(group)
 
-        def done(n):
+        def done(_):
             for mod_name in self.mods_data:
                 self._maybe_auto_collapse(mod_name)
             self._rebuild_view()
-            self._update_status(updated=n)
+            self._update_status(updated=updated)
 
-        self._run_batch("Fixing...", items, work, done,
+        self._run_batch("Fixing...", groups, work, done,
                         subtitle="Filling missing fields in existing configs...")
 
     def _show_analyze_dialog(self):

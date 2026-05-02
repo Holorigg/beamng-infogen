@@ -1,7 +1,44 @@
-screenshots/
+# Python bytecode / caches
 __pycache__/
-*.pyc
-*.pyo
-*.bak
-rename_info_configs.py
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build / packaging output
+build/
+dist/
+*.spec
+
+# Test / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local application state
 .beamng_infogen.json
+rename_info_configs.py
+
+# Local media / release prep
+screenshots/
+
+# Editor / OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backups
+*.bak
+*.backup
+*.tmp
+*.tmp.zip

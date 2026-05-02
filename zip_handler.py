@@ -1,7 +1,9 @@
 """
 Read and write files inside ZIP archives without extraction.
 """
-import io
+import os
+import shutil
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -101,28 +103,75 @@ def scan_zip(zip_path: Path) -> list:
     return entries
 
 
-def write_to_zip(zip_path: str, target_path_in_zip: str, content: str):
+def _zip_path(name: str) -> str:
+    """Normalize a path for ZIP storage."""
+    return name.replace("\\", "/").lstrip("/")
+
+
+def _copy_zip_entry(src: zipfile.ZipFile, dst: zipfile.ZipFile, info: zipfile.ZipInfo):
+    if info.is_dir():
+        dst.mkdir(info)
+        return
+
+    with src.open(info, "r") as in_file:
+        with dst.open(info, "w") as out_file:
+            shutil.copyfileobj(in_file, out_file, length=1024 * 1024)
+
+
+def write_many_to_zip(zip_path: str | Path, updates: dict[str, str]):
     """
-    Add or replace a file inside a zip archive.
-    Reads all entries into memory, updates the target, writes the zip back.
+    Add or replace many files inside a zip archive.
+
+    Missing files are appended directly. Replacements are written through a
+    temporary archive on disk, copying entries as streams so large mods are not
+    loaded into RAM.
     """
     zip_path = Path(zip_path)
-    target = target_path_in_zip.replace("\\", "/")
+    normalized = {_zip_path(name): text.encode("utf-8") for name, text in updates.items()}
+    if not normalized:
+        return
 
-    existing: dict[str, bytes] = {}
-    if zip_path.exists():
-        try:
-            with zipfile.ZipFile(zip_path, "r") as zf:
-                for name in zf.namelist():
-                    existing[name] = zf.read(name)
-        except zipfile.BadZipFile:
-            pass
+    if not zip_path.exists():
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for name, data in normalized.items():
+                zf.writestr(name, data)
+        return
 
-    existing[target] = content.encode("utf-8")
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        existing_names = set(zf.namelist())
 
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for name, data in existing.items():
-            zf.writestr(name, data)
+    if normalized.keys().isdisjoint(existing_names):
+        with zipfile.ZipFile(zip_path, "a", compression=zipfile.ZIP_DEFLATED) as zf:
+            for name, data in normalized.items():
+                zf.writestr(name, data)
+        return
 
-    zip_path.write_bytes(buf.getvalue())
+    temp_name = None
+    try:
+        fd, temp_name = tempfile.mkstemp(
+            prefix=f"{zip_path.stem}.",
+            suffix=".tmp.zip",
+            dir=str(zip_path.parent),
+        )
+        os.close(fd)
+
+        with zipfile.ZipFile(zip_path, "r") as src:
+            with zipfile.ZipFile(temp_name, "w", compression=zipfile.ZIP_DEFLATED) as dst:
+                for info in src.infolist():
+                    if info.filename in normalized:
+                        continue
+                    _copy_zip_entry(src, dst, info)
+
+                for name, data in normalized.items():
+                    dst.writestr(name, data)
+
+        os.replace(temp_name, zip_path)
+        temp_name = None
+    finally:
+        if temp_name and Path(temp_name).exists():
+            Path(temp_name).unlink(missing_ok=True)
+
+
+def write_to_zip(zip_path: str, target_path_in_zip: str, content: str):
+    """Backward-compatible single-file wrapper."""
+    write_many_to_zip(zip_path, {target_path_in_zip: content})
