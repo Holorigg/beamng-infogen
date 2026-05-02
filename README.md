@@ -5,14 +5,6 @@ Designed for use with **RLS Career Overhaul** — cars require a valid info conf
 
 ---
 
-## Screenshots
-
-![Main view](https://github.com/Holorigg/beamng-info-config-generator/releases/download/v1.0.3/1_clean.png)
-
-![Editor with dealer card preview](https://github.com/Holorigg/beamng-info-config-generator/releases/download/v1.0.3/2_clean.png)
-
----
-
 ## Requirements
 
 - Python 3.10+
